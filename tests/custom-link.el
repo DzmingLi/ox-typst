@@ -1,0 +1,47 @@
+;;; custom-link.el --- Custom link export tests -*- lexical-binding: t -*-
+(require 'ert)
+(require 'ox-typst)
+
+(ert-deftest org-typst-link-custom-export-receives-org-context ()
+  (let ((org-link-parameters (copy-tree org-link-parameters))
+        (calls 0))
+    (org-link-set-parameters "custom-test"
+      :export (lambda (path description backend info)
+                (cl-incf calls)
+                (should (equal path "data"))
+                (should (equal description "#text(weight: \"bold\", [Label])"))
+                (should (eq backend 'typst))
+                (should (plist-get info :parse-tree))
+                "#rect(fill: blue)"))
+    (should (equal (org-export-string-as "[[custom-test:data][*Label*]]" 'typst t)
+                   "#rect(fill: blue)\n"))
+    (should (= calls 1))))
+
+(ert-deftest org-typst-link-custom-derived-backend ()
+  (let ((org-link-parameters (copy-tree org-link-parameters))
+        (org-export-registered-backends org-export-registered-backends))
+    (org-export-define-derived-backend 'custom-typst 'typst)
+    (org-link-set-parameters "custom-test"
+      :export (lambda (_path description backend _info)
+                (should-not description)
+                (should (eq backend 'custom-typst))
+                "#circle()"))
+    (should (equal (org-export-string-as "[[custom-test:data]]" 'custom-typst t)
+                   "#circle()\n"))))
+
+(ert-deftest org-typst-link-custom-nil-falls-back-and-empty-string-omits ()
+  (let ((org-link-parameters (copy-tree org-link-parameters)))
+    (org-link-set-parameters "custom-test" :export (lambda (&rest _) nil))
+    (should (equal (org-export-string-as "[[custom-test:data][Label]]" 'typst t)
+                   "#link(\"custom-test:data\")[Label]\n"))
+    (org-link-set-parameters "custom-test" :export (lambda (&rest _) ""))
+    (should (string-empty-p (string-trim (org-export-string-as "[[custom-test:data]]" 'typst t))))))
+
+(ert-deftest org-typst-link-custom-errors-propagate ()
+  (let ((org-link-parameters (copy-tree org-link-parameters)))
+    (org-link-set-parameters "custom-test" :export (lambda (&rest _) (user-error "Cannot render")))
+    (should-error (org-export-string-as "[[custom-test:data]]" 'typst t) :type 'user-error)))
+
+(ert-deftest org-typst-link-ordinary-external-links-unchanged ()
+  (should (equal (org-export-string-as "[[https://example.org][Example]]" 'typst t)
+                 "#link(\"https://example.org\")[Example]\n")))

@@ -416,6 +416,8 @@ will result in `ox-typst' to apply the colors to the code block."
   "#linebreak()\n")
 
 (defun org-typst-link (link contents info)
+  "Transcode LINK with exported CONTENTS and export context INFO.
+Honor custom Org link exporters before the built-in link handling."
   (let (;; NOTE: Typst is a bit picky about labels inside headlines. If we point
         ;; to an element inside a headline, we need to point to the headline
         ;; instead. Most of the time this is what you want, but it might not be
@@ -427,6 +429,8 @@ will result in `ox-typst' to apply the colors to the code block."
                  (org-export-get-reference parent info)
                (org-export-get-reference target info))))))
     (cond
+     ((org-export-custom-protocol-maybe
+       link contents (org-export-backend-name (plist-get info :back-end)) info))
      ((org-export-inline-image-p link org-typst-inline-image-rules)
       (org-typst--figure (format
                           "#image(%s)"

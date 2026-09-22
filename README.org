@@ -86,6 +86,18 @@ attributes. HTML theorem numbering is not generated automatically.
 
 Function definitions and package imports belong in a Typst export block.
 
+* Custom Org links
+
+Links registered with =org-link-set-parameters= may provide an =:export=
+function.  ox-typst calls it with =(PATH DESCRIPTION BACKEND INFO)= before
+built-in link handling.  DESCRIPTION is already exported Typst (or nil),
+and BACKEND is the actual backend symbol, including a derived backend.
+Use =org-export-derived-backend-p= when supporting Typst descendants.
+
+Return ready-to-use Typst source without further escaping, nil to use the
+ordinary link fallback, or an empty string to omit the link.  Errors propagate.
+This is a generic Org protocol: no diagram or preview package is required.
+
 * Themes
 
 Use Typst rules to change the appearance of your document. Include
