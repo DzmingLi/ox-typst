@@ -140,6 +140,10 @@
 
 (defun org-typst-test-run ()
   (interactive)
+  (load (file-name-concat (vc-git-root default-directory) "tests/special-block.el"))
+  (let ((stats (ert-run-tests-batch "^org-typst-block-")))
+    (unless (zerop (ert-stats-completed-unexpected stats))
+      (error "Special block tests failed")))
   (setq org-typst-test--tests-failed 0)
   (setq org-typst-test--tests-skipped 0)
   (setq org-typst-test--tests-succeeded 0)

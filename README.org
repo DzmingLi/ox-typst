@@ -49,6 +49,43 @@ Alternatively use an export block.
 #+END_SRC
 
 
+* Math environments and custom blocks
+
+Special blocks use their names directly: =begin_theorem= calls =#theorem[...]=
+in Typst, exports as a =theorem= environment in LaTeX, and uses the =theorem=
+class in HTML. No block registration or mapping is needed.
+
+Built-in Org blocks retain their meaning: =begin_example= is a verbatim block.
+For a mathematical example, choose another name and define the corresponding
+Typst function and LaTeX environment in your preamble.
+
+#+begin_example
+#+NAME: my-theorem
+#+ATTR_LATEX: :options [A theorem]
+#+begin_theorem :title [A theorem] :numbering none
+For real $x$, $x^2 >= 0$.
+#+end_theorem
+
+See [[my-theorem][the theorem]].
+#+end_example
+
+Typst output is =#theorem(title: [A theorem], numbering: none)[...]=.
+=:positional= supplies positional arguments; all other keys retain their names.
+Values are raw Typst expressions, such as =:name "Title"=,
+=:positional [Title]=, =:outlined false=, or =:fill rgb("#fff")=.
+Write parameters after the block name on the =#+begin_= line.
+Positional arguments can be repeated. =ATTR_TYPST= is not read for special blocks.
+
+By default, NAME produces a trailing label matching Org links. To pass a label
+as an argument instead, use =:label <thm:one>= while keeping NAME as the Org
+link target.
+
+LaTeX uses the block name and ATTR_LATEX; HTML uses the block name as its
+class and ATTR_HTML. Typst arguments are not translated into HTML or LaTeX
+attributes. HTML theorem numbering is not generated automatically.
+
+Function definitions and package imports belong in a Typst export block.
+
 * Themes
 
 Use Typst rules to change the appearance of your document. Include

@@ -443,11 +443,14 @@ will result in `ox-typst' to apply the colors to the code block."
                 (org-trim contents))))
      ((member (org-element-property :type link) '("custom-id" "id" "fuzzy"))
       (let* ((target (org-export-resolve-link link info))
-             (link-path (org-typst--as-string
-                         (funcall resolve-headline-friendly target))))
+             (label (if (org-element-type-p target 'special-block)
+                        (org-typst--special-block-label target info)
+                      (format "label(%s)"
+                              (org-typst--as-string
+                               (funcall resolve-headline-friendly target))))))
         (if contents
-            (format "#link(label(%s))[%s]" link-path (org-trim contents))
-          (format "#ref(label(%s))" link-path))))
+            (format "#link(%s)[%s]" label (org-trim contents))
+          (format "#ref(%s)" label))))
      ;; Other like HTTP (external)
      (t
       (let ((link-typst (org-typst--as-string (org-element-property :raw-link link))))
@@ -522,8 +525,47 @@ will result in `ox-typst' to apply the colors to the code block."
 (defun org-typst-section (_section contents _info)
   contents)
 
-(defun org-typst-special-block (_special-block contents _info)
-  contents)
+(defun org-typst--special-block-arguments (block)
+  "Read BLOCK's header parameters, retaining raw Typst expressions.
+Only top-level :keys separate arguments; strings and brackets retain colons."
+  (let* ((text (or (org-element-property :parameters block) ""))
+         (length (length text)) (i 0) (depth 0) quoted key start pairs)
+    (while (< i length)
+      (let ((char (aref text i)))
+        (cond
+         ((and quoted (= char ?\\)) (setq i (1+ i)))
+         ((= char ?\") (setq quoted (not quoted)))
+         (quoted)
+         ((memq char '(?\( ?\[ ?\{)) (cl-incf depth))
+         ((memq char '(?\) ?\] ?\})) (cl-decf depth))
+         ((and (= depth 0) (= char ?:)
+               (or (= i 0) (memq (aref text (1- i)) '(?\s ?\t ?\n)))
+               (string-match "\\`:\\([-[:alnum:]_]+\\)\\(?:[ \t\n]+\\|\\'\\)"
+                             (substring text i)))
+          (when key (push (cons key (string-trim (substring text start i))) pairs))
+          (setq key (match-string 1 (substring text i))
+                start (+ i (match-end 0)) i (1- start)))))
+      (cl-incf i))
+    (when key (push (cons key (string-trim (substring text start))) pairs))
+    (nreverse pairs)))
+
+(defun org-typst--special-block-label (block info)
+  "Return the Typst label expression for BLOCK using export INFO."
+  (or (cdr (assoc "label" (org-typst--special-block-arguments block)))
+      (format "label(%s)" (org-typst--as-string (org-export-get-reference block info)))))
+
+(defun org-typst-special-block (block contents info)
+  "Export special BLOCK as a same-name Typst call with CONTENTS and INFO."
+  (let* ((name (org-element-property :type block))
+         (pairs (org-typst--special-block-arguments block))
+         (args (mapconcat (lambda (pair)
+                            (if (equal (car pair) "positional") (cdr pair)
+                              (concat (car pair) ": " (cdr pair))))
+                          pairs ", ")))
+    (concat "#" name (unless (string-empty-p args) (concat "(" args ")"))
+            "[\n" contents "]"
+            (when (and (org-element-property :name block) (not (assoc "label" pairs)))
+              (concat " #" (org-typst--special-block-label block info))) "\n")))
 
 (defun org-typst-src-block (src-block _contents info)
   (when-let* ((code (org-element-property :value src-block))
